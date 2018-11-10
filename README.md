@@ -1,3 +1,3 @@
 # Classify
 use tf.layers to construct VGG16
-debuging
+use tf.layers to construct ResNet50
