@@ -10,7 +10,7 @@ from tensorflow.contrib import learn
 from tensorflow.contrib.learn.python.learn.estimators import model_fn as model_fn_lib
 
 tf.logging.set_verbosity(tf.logging.INFO)
-a = 1
+
 
 # CIFAR-100-dataLoad
 class cifarDataLoader():
@@ -113,7 +113,7 @@ class VGG16(ClassifyModel):
         net = tf.layers.dense(net, 4096, activation=tf.nn.relu,
                               kernel_initializer=tf.variance_scaling_initializer(),
                               name='fc2')
-        net = tf.layers.dense(net, 100, activation=tf.nn.relu,
+        net = tf.layers.dense(net, 10, activation=tf.nn.relu,
                               kernel_initializer=tf.variance_scaling_initializer(),
                               name='fc3')
         # net = tf.nn.softmax(net)
@@ -189,7 +189,8 @@ def loss_fn(logits, labels):
 def build_model(loss):
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies(update_ops):
-        optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
+        # optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.01)
         gradients, variables = zip(*optimizer.compute_gradients(loss))
         gradients = [None if gradient is None else tf.clip_by_norm(gradient, 50) for gradient
                      in gradients]
@@ -199,21 +200,25 @@ def build_model(loss):
 
 def main():
     cifar = cifarDataLoader()
-    cifar.load('cifar-100-python/test', 'cifar-100-python/meta')
+    cifar.load('../cifar-100-python/train', '../cifar-100-python/meta')
+    mnist = input_data.read_data_sets("../MNIST_data/", one_hot=True)
     # cifar.load_CIFAR_Data('cifar-100-python/train', onehot=True)
-    inputs = tf.placeholder(tf.float32, shape=[None, 32, 32, 3], name='inputs')
-    labels = tf.placeholder(tf.float32, shape=[None, 100])
+    inputs = tf.placeholder(tf.float32, shape=[None, 784], name='inputs')
+    reshape_inputs = tf.reshape(inputs, [-1, 28, 28, 1])
+    labels = tf.placeholder(tf.float32, shape=[None, 10])
     # Build Graph
     vgg = VGG16(is_training=True, num_classes=100)
-    processed = vgg.prepocess(inputs)
+    processed = vgg.prepocess(reshape_inputs)
     logits = vgg.predict(processed)
     loss = loss_fn(logits, labels)
     train_op = build_model(loss)
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
+    # writer = tf.summary.FileWriter('../logs/', sess.graph)
     for i in range(1000):
-        batch_x, batch_y = cifar.get_next_batch(100)
-        batch_loss, _ = sess.run([loss, train_op], feed_dict={inputs: batch_x, labels: batch_y})
+        # batch_x, batch_y = cifar.get_next_batch(100)
+        batch = mnist.train.next_batch(50)
+        batch_loss, _ = sess.run([loss, train_op], feed_dict={inputs: batch[0], labels: batch[1]})
         if i % 20 == 0:
             # train_loss = accuracy.eval(session=sess, feed_dict={x: batch[0], y_: batch[1], keep_prob: 1.0})
             print("step ", i, "train_loss ", batch_loss)
