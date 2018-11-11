@@ -1,4 +1,5 @@
 # Classify
+Main_VGG16.py: a failure  
 cifarDataLoader: load cifar-100 data  
 VGG16.py: use tf.layers to construct VGG16  
 ResNet50.py: use tf.layers to construct ResNet50  
