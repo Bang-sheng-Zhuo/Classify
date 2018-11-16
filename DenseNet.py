@@ -43,15 +43,7 @@ class DenseNet(object):
 	def transition_layer(self, input_tensor, theta, size, stride, padding='same', is_training=True, bn=True, bn_scale=True):
 		# batch_normalization->1x1 conv->2x2 ave_pooling
 		input_depth = slim.utils.last_dimension(input_tensor.get_shape(), min_rank=4)
-		net = input_tensor
-		if bn:
-			net = tf.layers.batch_normalization(inputs=net,
-												center=True,
-												scale=bn_scale,
-												momentum=0.96,
-												training=is_training
-												)
-		net = tf.layers.conv2d(inputs=net, filters=int(theta*input_depth), kernel_size=size, strides=stride, padding=padding)
+		net = self.bn_activation_conv(input_tensor, depth=int(theta*input_depth), size=size, stride=stride, padding=padding, is_training=self.is_training, bn=bn, bn_scale=bn_scale)
 		net = tf.layers.average_pooling2d(inputs=net,
 									  pool_size=2,
 									  strides=2,
@@ -72,13 +64,8 @@ class DenseNet(object):
 					  ):
 		# Preprocess Block, input_size = 32
 		net = self.X
-		net = tf.layers.conv2d(inputs=net, filters=32, kernel_size=7, strides=2, padding='same')
-		net = tf.layers.batch_normalization(inputs=net,
-											center=True,
-											scale=True,
-											momentum=0.96,
-											training=self.is_training
-											)
+		# net = self.bn_activation_conv(net, depth=64, size=7, stride=2, padding='same', is_training=self.is_training, bn=True, bn_scale=True)
+		net = tf.layers.conv2d(inputs=net, filters=64, kernel_size=7, strides=2, padding='same')
 		net = tf.nn.relu(net)
 		net = tf.layers.max_pooling2d(inputs=net, pool_size=3, strides=2, padding='same')
 		# pdb.set_trace()
@@ -89,7 +76,7 @@ class DenseNet(object):
 			tmp = tf.concat(values=[tmp, net], axis=3)
 		# Transition Layer
 		# pdb.set_trace()
-		tmp = self.transition_layer(input_tensor=tmp, theta=self.theta, size=1, stride=1, padding='same', is_training=True, bn=True, bn_scale=True)
+		tmp = self.transition_layer(input_tensor=tmp, theta=self.theta, size=1, stride=1, padding='same', is_training=self.is_training, bn=True, bn_scale=True)
 		# Dense Block2, k = 32, l = 12, input_size = 4
 		# pdb.set_trace()
 		for i in range(12):
@@ -112,6 +99,7 @@ class DenseNet(object):
 							  units=self.nums_classes,
 							  activation=None
 							  )
+		# pdb.set_trace()
 		return net
 	
 	def loss_fn(self):

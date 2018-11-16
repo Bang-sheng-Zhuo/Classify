@@ -1,5 +1,7 @@
 # data argumentation
+import pdb
 import numpy as np
+import tensorflow as tf
 import skimage
 import cv2
 from skimage.transform import rotate
@@ -134,5 +136,28 @@ def rgb_mean(batch_data):
 	batch_img[:,:,:,2] -= b_mean
 	return batch_img
 
+def random_erase(img, prob=0.5, min=0.1, max=0.3):
+	# cv2.imshow('original', img)
+	# cv2.waitKey(0)
+	# cv2.destroyAllWindows()
+	flag = np.random.rand(1)
+	height, width, depth = img.shape
+	if flag>=prob:
+		rand_h = np.random.rand(1)*(max-min)+min
+		rand_h = int(rand_h*height)
+		rand_w = np.random.rand(1)*(max-min)+min
+		rand_w = int(rand_w*width)
+		h_begin = int(np.random.randint(low=0, high=height-rand_h+1, dtype=np.uint8))
+		w_begin = int(np.random.randint(low=0, high=width-rand_w+1, dtype=np.uint8))
+		value = np.random.randint(low=0, high=256, dtype=np.uint8)
+		img[h_begin:h_begin+rand_h,w_begin:w_begin+rand_w,:] = value
+		# cv2.imshow('erase', img)
+		# cv2.waitKey(0)
+		# cv2.destroyAllWindows()
+		return img
+	else:
+		return img
+
 if __name__ == '__main__':
-	main()
+	img = np.random.randint(low=0, high=256, size=(100,100,3), dtype=np.uint8)
+	random_erase(img, prob=0., min=0.2, max=0.5)
