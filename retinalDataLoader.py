@@ -17,7 +17,7 @@ class retinalDataLoader(object):
         self.YY = None
         self.mask = None
         
-    def load_CHASEDB1(self, file_path="D:/vessel dataset/CHASEDB/CHASEDB1"):
+    def load_CHASEDB(self, file_path="D:/vessel dataset/CHASEDB/CHASEDB1"):
         file_list = glob.glob(file_path+"/*.jpg")
         file_list.sort()
         img = []
@@ -131,7 +131,7 @@ class retinalDataLoader(object):
 
 if __name__ == '__main__':
     data = retinalDataLoader()
-    # data.load_CHASEDB1()
+    # data.load_CHASEDB()
     # data.load_DRIVE()
     # data.load_HRF()
     data.load_STARE()
