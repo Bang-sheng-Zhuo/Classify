@@ -1,4 +1,5 @@
 from ResNet50 import ResNet
+from DenseNet import DenseNet
 from cifarDataLoader import cifarDataLoader
 import numpy as np
 import pdb
@@ -21,12 +22,14 @@ def main():
 	# batch_input = test_generator.flow(cifar.X, cifar.Y, 250)
 	with tf.device('/device:GPU:0'):
 		# CNN = VGG16()
-		CNN = ResNet(height=32, width=32, depth=3, nums_classes=100, trainable=False)
+		# CNN = ResNet(height=32, width=32, depth=3, nums_classes=100, trainable=False)
+		CNN = DenseNet(height=32, width=32, depth=3, nums_classes=100, trainable=False)
 		config = tf.ConfigProto(allow_soft_placement=True)
 		config.gpu_options.allow_growth = True
 		sess = tf.Session(config=config)
 		saver = tf.train.Saver(tf.global_variables(), max_to_keep=20)
-		saver.restore(sess, tf.train.latest_checkpoint('./checkpoint_dir/'))
+		# saver.restore(sess, tf.train.latest_checkpoint('./checkpoint_dir/'))
+		saver.restore(sess, tf.train.latest_checkpoint('./checkpoint_dir_densenet/'))
 		total_loss = []
 		total_accuracy = []
 		i = 0

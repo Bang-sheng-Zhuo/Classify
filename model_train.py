@@ -30,14 +30,15 @@ def main():
 	batch_input = train_generator.flow(cifar.X, cifar.Y, 200)
 	with tf.device('/device:GPU:0'):
 		# CNN = VGG16()
-		CNN = ResNet(height=32, width=32, depth=3, nums_classes=100, lr=0.001)
-		# CNN = DenseNet(height=32, width=32, depth=3, nums_classes=100, lr=0.001)
+		# CNN = ResNet(height=32, width=32, depth=3, nums_classes=100, lr=0.0005)
+		CNN = DenseNet(height=32, width=32, depth=3, nums_classes=100, lr=0.001)
 		config = tf.ConfigProto(allow_soft_placement=True)
 		config.gpu_options.allow_growth = True
 		sess = tf.Session(config=config)
-		saver = tf.train.Saver(tf.global_variables(), max_to_keep=20)
+		saver = tf.train.Saver(tf.global_variables(), max_to_keep=40)
 		# saver.restore(sess, tf.train.latest_checkpoint('./checkpoint_dir/'))
-		# saver.restore(sess, tf.train.latest_checkpoint('./checkpoint_dir_densenet/'))
+		# saver.restore(sess, tf.train.latest_checkpoint('./checkpoint_dir_densenet/MyModel-10000'))
+		# saver.restore(sess, './checkpoint_dir_densenet/MyModel-10000')
 		sess.run(tf.global_variables_initializer())
 		for x, y in batch_input:
 			# batch = mnist.train.next_batch(256)
@@ -54,8 +55,10 @@ def main():
 			if train_step % 25 == 0:
 				print("traing_step: ", train_step, "training_loss: ", batch_loss, "batch_accuracy: ", batch_accuracy)
 			if train_step % 1000 == 0:
-				# saver.save(sess,"./checkpoint_dir_densenet/MyModel", global_step=train_step)
-				saver.save(sess,"./checkpoint_dir/MyModel", global_step=train_step)
+				saver.save(sess,"./checkpoint_dir_densenet/MyModel", global_step=train_step)
+				# saver.save(sess,"./checkpoint_dir/MyModel", global_step=train_step)
+			if train_step == 30000:
+				break
 
 
 if __name__ == '__main__':
