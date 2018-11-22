@@ -6,4 +6,4 @@ DenseNet.pu: use tf.layers to construct DenseNet
 model_train.py: train new model/continue train model  
 model_test.py: use the latest checkpoint and test data to test model  
 data_augmentation.py: functions for data augmentation  
-retinalDataLoader.pu: load retina data  
+retinalDataLoader.py: load retina data  
