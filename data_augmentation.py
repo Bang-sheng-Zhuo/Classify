@@ -10,6 +10,10 @@ from skimage import color
 keras = tf.keras
 image_process = keras.preprocessing.image
 
+def one_hot_encode(label, nums_classes):
+    onehot = np.eye(nums_classes)[label]
+    return onehot.astype(np.float32)
+
 def add_impulse_noise(img, height, weight):
     randint = int(height*weight/5)
     for j in range(randint):
@@ -154,6 +158,22 @@ def random_erase(img, prob=0.5, min=0.1, max=0.3):
         return img
     else:
         return img
+
+def random_crop(img, padding=4, is_flip=True, prob=0.5, is_crop=True):
+    height, width, depth = img.shape
+    pad_shape = ((padding,padding),(padding,padding),(0,0))
+    flag = np.random.rand(1)
+    if is_flip and flag>=prob:
+        flip = horizontal_flip(img)
+    else:
+        flip = img
+    if is_crop:
+        [left, top] = np.random.randint(low=0, high=2*padding, size=2, dtype=np.uint8)
+        flip_pad = np.pad(flip, pad_shape, 'constant', constant_values=0)
+        crop = flip_pad[left:left+height, top:top+width, :]
+        return crop
+    else:
+        return flip
 
 if __name__ == '__main__':
     img = np.random.randint(low=0, high=256, size=(100,100,3), dtype=np.uint8)
