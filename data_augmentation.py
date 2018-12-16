@@ -235,8 +235,4 @@ def batch_augmentation_1(X, seq,
     return X
             
 if __name__ == '__main__':
-    theta = np.pi / 180 * np.random.uniform(-50, 50)
-    img = io.imread('/home/zbs/jpg_data/all_data/1/1_93.jpg')
-    wshift = 0.2
-    hshift = 0.2
     pdb.set_trace()
