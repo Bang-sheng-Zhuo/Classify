@@ -5,10 +5,15 @@ import tensorflow as tf
 import skimage
 import cv2
 from skimage.transform import rotate
-from skimage import color
+from skimage import color, io
 
 keras = tf.keras
 image_process = keras.preprocessing.image
+
+def img_show(img, name='test'):
+    cv2.imshow(name, img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 def one_hot_encode(label, nums_classes):
     onehot = np.eye(nums_classes)[label]
@@ -34,18 +39,6 @@ def horizontal_flip(img):
     img = img[:,::-1,:]
     return img
 
-# rotate_limit=(-30, 30)
-# theta = np.pi / 180 * np.random.uniform(rotate_limit[0], rotate_limit[1]) #逆时针旋转角度
-# img_rot = rotate(img, theta)
-# imshow(img_rot)
-def rotatation(img, theta, row_axis=0, col_axis=1, channel_axis=2, fill_mode='nearest', cval=0):
-    rotation_matrix = np.array([[np.cos(theta), -np.sin(theta), 0],
-                                [np.sin(theta), np.cos(theta), 0], [0, 0, 1]])
-    h, w = img.shape[row_axis], img.shape[col_axis]
-    transform_matrix = image_process.transform_matrix_offset_center(rotation_matrix, h, w)
-    img = image_process.apply_transform(img, transform_matrix, channel_axis, fill_mode, cval)
-    return img
-
 # w_limit=(-0.2, 0.2)
 # h_limit=(-0.2, 0.2)
 # wshift = np.random.uniform(w_limit[0], w_limit[1])
@@ -63,31 +56,39 @@ def shift(img, wshift, hshift, row_axis=0, col_axis=1, channel_axis=2, fill_mode
     img = image_process.apply_transform(img, transform_matrix, channel_axis, fill_mode, cval)
     return img
 
-# zoom_range=(0.7, 1)
-# zx, zy = np.random.uniform(zoom_range[0], zoom_range[1], 2)
-# img_zoom = zoom(img, zx, zy)
-# imshow(img_zoom)
-def zoom(img, zx, zy, row_axis=0, col_axis=1, channel_axis=2, fill_mode='nearest', cval=0.):
-    zoom_matrix = np.array([[zx, 0, 0],
-                            [0, zy, 0],
-                            [0, 0, 1]])
-    h, w = img.shape[row_axis], img.shape[col_axis]
-    transform_matrix = image_process.transform_matrix_offset_center(zoom_matrix, h, w) #保持中心坐标不改变
-    img = image_process.apply_transform(img, transform_matrix, channel_axis, fill_mode, cval)
-    return img
+def cv2_clipped_zoom(img, zoom_factor):
+    """
+    Center zoom in/out of the given image and returning an enlarged/shrinked view of 
+    the image without changing dimensions
+    Args:
+        img : Image array
+        zoom_factor : amount of zoom as a ratio (0 to Inf)
+    """
+    # pdb.set_trace()
+    height, width = img.shape[:2] # It's also the final desired shape
+    new_height, new_width = int(height * zoom_factor), int(width * zoom_factor)
 
-# intensity = 0.5
-# sh = np.random.uniform(-intensity, intensity) #逆时针方向剪切强度为正
-# img_shear = shear(img, sh)
-# imshow(img_shear)
-def shear(img, shear, row_axis=0, col_axis=1, channel_axis=2, fill_mode='nearest', cval=0.):
-    shear_matrix = np.array([[1, -np.sin(shear), 0],
-                            [0, np.cos(shear), 0],
-                            [0, 0, 1]])
-    h, w = img.shape[row_axis], img.shape[col_axis]
-    transform_matrix = image_process.transform_matrix_offset_center(shear_matrix, h, w)
-    img = image_process.apply_transform(img, transform_matrix, channel_axis, fill_mode, cval)
-    return img
+    ### Crop only the part that will remain in the result (more efficient)
+    # Centered bbox of the final desired size in resized (larger/smaller) image coordinates
+    y1, x1 = max(0, new_height - height) // 2, max(0, new_width - width) // 2
+    y2, x2 = y1 + height, x1 + width
+    bbox = np.array([y1,x1,y2,x2])
+    # Map back to original image coordinates
+    bbox = (bbox / zoom_factor).astype(np.int)
+    y1, x1, y2, x2 = bbox
+    cropped_img = img[y1:y2, x1:x2]
+
+    # Handle padding when downscaling
+    resize_height, resize_width = min(new_height, height), min(new_width, width)
+    pad_height1, pad_width1 = (height - resize_height) // 2, (width - resize_width) //2
+    pad_height2, pad_width2 = (height - resize_height) - pad_height1, (width - resize_width) - pad_width1
+    pad_spec = [(pad_height1, pad_height2), (pad_width1, pad_width2)] + [(0,0)] * (img.ndim - 2)
+
+    result = cv2.resize(cropped_img, (resize_width, resize_height))
+    result = np.expand_dims(result, axis=-1)
+    result = np.pad(result, pad_spec, mode='constant')
+    assert result.shape[0] == height and result.shape[1] == width
+    return result
 
 def contrast(image, hue_shift_limit=(-180, 180),
             sat_shift_limit=(-255, 255),
@@ -175,6 +176,67 @@ def random_crop(img, padding=4, is_flip=True, prob=0.5, is_crop=True):
     else:
         return flip
 
+    
+# data augmentation for conv_lstm 
+def img_padding(X, max_len):
+    batch_x = []
+    _, h, w, d = X[0].shape
+    for data in X:
+        tmp_x = np.zeros([max_len-data.shape[0], h, w, d], dtype=np.int32)
+        batch_x.append(np.concatenate([data, tmp_x], axis=0))
+    batch_x = np.asarray(batch_x)
+    return batch_x
+
+def label_padding(Y, max_len, classes):
+    batch_y = []
+    for y in Y:
+        tmp_y = one_hot_encode(y, classes)
+        y_pad = np.zeros([max_len-tmp_y.shape[0], classes], dtype=np.float32)
+        batch_y.append(np.concatenate([tmp_y, y_pad], axis=0))
+    return np.concatenate(batch_y, axis=0)
+    
+def next_batch(X, Y, nums_frames, classes, batch_size=6, padding=True):
+    idx = np.random.choice(len(nums_frames), batch_size)
+    tmp_x = [X[i] for i in idx]
+    batch_y = [Y[i] for i in idx]
+    seq = [nums_frames[i] for i in idx]
+    seq = np.array(seq).astype(np.int32)
+    max_len = np.max(seq)
+    if padding:
+        batch_x = img_padding(tmp_x, max_len)
+    else:
+        batch_x = np.concatenate(tmp_x, axis=0)
+    batch_y = label_padding(batch_y, max_len, classes)
+    # pdb.set_trace()
+    return batch_x, batch_y, seq, max_len
+
+def batch_augmentation_1(X, seq,
+                         rotation_range=None,
+                         flip_prob=None,
+                         shift_range=None,
+                         zoom_range=None
+                        ):
+    for i in range(X.shape[0]):
+        # if rotation_range is not None:
+        theta = np.random.uniform(-rotation_range, rotation_range)
+        # if flip_prob is not None and np.random.rand(1) > flip_prob:
+        flag = np.random.rand(1)
+        # if shift_range is not None:
+        wshift = np.random.uniform(-shift_range, shift_range)
+        hshift = np.random.uniform(-shift_range, shift_range)
+        # if zoom_range is not None:
+        zoom_factor = np.random.uniform(zoom_range[0], zoom_range[1])
+        for j in range(seq[i]):
+            X[i,j,:,:,:] = rotate(X[i,j,:,:,:], theta)
+            if flag > flip_prob:
+                X[i,j,:,:,:] = X[i,j,:,::-1,:]
+            X[i,j,:,:,:] = shift(X[i,j,:,:,:], wshift, hshift)
+            cv2_clipped_zoom(X[i,j,:,:,:], zoom_factor)
+    return X
+            
 if __name__ == '__main__':
-    img = np.random.randint(low=0, high=256, size=(100,100,3), dtype=np.uint8)
-    random_erase(img, prob=0., min=0.2, max=0.5)
+    theta = np.pi / 180 * np.random.uniform(-50, 50)
+    img = io.imread('/home/zbs/jpg_data/all_data/1/1_93.jpg')
+    wshift = 0.2
+    hshift = 0.2
+    pdb.set_trace()
